@@ -1,4 +1,4 @@
-steps = [1];
+steps = [3];
 
 %% Setup %%
 glacier = 'KAK'; glacier_epoch = 1985;
@@ -192,3 +192,102 @@ if perform(org,'Param'),% {{{ STEP 2
 
 	savemodel(org,md);
 end%}}}
+if perform(org,'Inversion'),% {{{ STEP 3
+
+	md = loadmodel(org,'Param');
+
+	% Control inversion -- general
+	md.inversion=m1qn3inversion(md.inversion);
+	md.inversion.iscontrol=1;
+	md.verbose=verbose('solution',false,'control',true);
+
+	% Control -- other
+	md.transient.issmb = 0;
+	md.transient.isthermal = 0;
+
+	% Cost functions
+	md.inversion.cost_functions=[101 103 501]; %Abs, Log, reg
+	md.inversion.cost_functions_coefficients=ones(md.mesh.numberofvertices,length(md.inversion.cost_functions));
+   md.inversion.cost_functions_coefficients(:,1)=1;
+   md.inversion.cost_functions_coefficients(:,2)=1;
+   md.inversion.cost_functions_coefficients(:,3)=1;
+
+	% %Remove obs where the front from the velocities are upstream of our current front
+	% filename = ['Exp/' glacier '_velfront.exp'];
+	% if exist(filename,'file'),
+	% 	disp(['Correcting cost functions for front inconsistencies']);
+	% 	pos = find(ContourToNodes(md.mesh.x,md.mesh.y,filename,2));
+	% 	md.friction.coefficient(pos)=min(md.friction.coefficient(pos),100);
+	% end
+   
+   % Where vel==0, set coefficients to 0 (i.e., don't try to match this in model)
+   disp(['Removing vel==0 obs from inversion']);
+   pos = find(md.inversion.vel_obs == 0);
+   md.inversion.cost_functions_coefficients(pos,:) = 0;
+
+	% Controls
+	md.inversion.control_parameters={'FrictionCoefficient'};
+	md.inversion.maxsteps=50;
+	md.inversion.maxiter =50;
+	md.inversion.min_parameters=0.05*ones(md.mesh.numberofvertices,1);
+	md.inversion.max_parameters=200*ones(md.mesh.numberofvertices,1);
+	md.inversion.control_scaling_factors=1;
+
+   % Set basal friction coefficient initial guess to something low at front %%{{{
+   filename = ['Exp/' glacier '_coeffront.exp'];
+   %if ~exist(filename,'file'),
+   %   plotmodel(md,'data',md.friction.coefficient,'mask',md.mask.ice_levelset<0)
+   %   exptool(filename)
+   %end
+   if exist(filename,'file'),
+      disp(['Correcting basal friction coefficient initial guess for front inconsistencies']);
+      flags = ContourToNodes(md.mesh.x,md.mesh.y,filename,2);
+      %flags = md.inversion.vel_obs == 0;
+      pos1 = find(flags); pos2 = find(~flags);
+      %md.friction.coefficient(pos1,:) = 50;
+      %md.friction.coefficient(pos1,:) = 100;
+      md.friction.coefficient(pos1) = 1;
+      md.inversion.max_parameters(pos1)= 1;
+      %md.friction.coefficient(pos1,:) = 40;
+      %md.friction.coefficient(pos1,:) = griddata(md.mesh.x(pos2),md.mesh.y(pos2),md.friction.coefficient(pos2,:),md.mesh.x(pos1),md.mesh.y(pos1));
+
+      % % Special case: KLG
+      % % Although observed velocities at the front look reasonable, a "ridge" of high friction comes out of the inversion. This is meant to
+      % % neglect velocities along this erroneous ridge in the inversion.
+      % if glacier == 'KLG'
+      %    md.inversion.cost_functions_coefficients(pos1,1) = 0;
+      %    md.inversion.cost_functions_coefficients(pos1,2) = 0;
+      % end
+   end
+	%%}}}
+
+   % %Fix friction coefficient
+   % filename = ['Exp/' glacier '_fixFrictionCoefficient.exp'];
+   % if exist(filename,'file'),
+   %    disp(['Ignoring manually selected velocities in the inversion using ' filename]);
+   %    pos = find(ContourToNodes(md.mesh.x,md.mesh.y,filename,1));
+   %    %md.inversion.min_parameters(pos)=md.friction.coefficient(pos);
+   %    md.inversion.max_parameters(pos)=10; %md.friction.coefficient(pos);
+   %    %md.inversion.cost_functions_coefficients(pos,1) = 0;
+   %    %md.inversion.cost_functions_coefficients(pos,2) = 0;
+   %    %md.inversion.cost_functions_coefficients(pos,3) = 0;
+   % end
+
+	%Additional parameters
+	%md.stressbalance.restol=0.01;
+	%md.stressbalance.reltol=0.1;
+	%md.stressbalance.abstol=NaN;
+   %md.stressbalance.requested_outputs={'default','DeviatoricStressxx','DeviatoricStressyy','DeviatoricStressxy'}
+
+	% Go solve
+	md.cluster=cluster;
+   md.settings.waitonlock = waitonlock;
+   md=solve(md,'Stressbalance'); %,'batch',batch);
+
+   if waitonlock == 0 || isnan(waitonlock)
+      loadandsaveresultsfromcluster;
+   else
+      savemodel(org,md);
+   end
+end%}}}
+

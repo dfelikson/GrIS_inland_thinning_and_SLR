@@ -213,16 +213,16 @@ end
 %Set up the base as the difference between S and H
 md.geometry.base=md.geometry.surface-md.geometry.thickness;
 
-disp('      -- initializing thickness beyond current front');
-pos = find(md.mask.ice_levelset>0);
-md.geometry.thickness(pos) = 10;
-md.geometry.surface(pos) = md.geometry.bed(pos)+10; %Minimum thickness
-md.geometry.base=md.geometry.surface-md.geometry.thickness;
+% disp('      -- initializing thickness beyond current front');
+% pos = find(md.mask.ice_levelset>0);
+% md.geometry.thickness(pos) = 10;
+% md.geometry.surface(pos) = md.geometry.bed(pos)+10; %Minimum thickness
+% md.geometry.base=md.geometry.surface-md.geometry.thickness;
 
 disp('      -- ice shelf base based on hydrostatic equilibrium');
 di=md.materials.rho_ice/md.materials.rho_water;
 md.mask.ocean_levelset = -md.geometry.thickness+md.geometry.bed/di;
-pos = find(md.mask.ocean_levelset<0); % & md.mask.ice_levelset<0);
+pos = find(md.mask.ocean_levelset>0); % & md.mask.ice_levelset<0);
 md.geometry.surface(pos)= md.geometry.thickness(pos)*(md.materials.rho_water-md.materials.rho_ice)/md.materials.rho_water;
 md.geometry.base = md.geometry.surface - md.geometry.thickness;
 %surface_floating = md.geometry.surface;
@@ -311,12 +311,12 @@ md.friction.coefficient=sqrt(md.materials.rho_ice*md.geometry.thickness.*(sslope
 md.friction.coefficient=min(md.friction.coefficient,200);
 md.friction.p = 1.0 * ones(md.mesh.numberofelements,1);
 md.friction.q = 1.0 * ones(md.mesh.numberofelements,1);
-disp('      -- Extrapolate on ice free and floating ice regions');
-flags=(md.mask.ice_levelset>0) | (md.mask.ocean_levelset<0); pos1=find(flags); pos2=find(~flags);
-%md.friction.coefficient(pos1) = griddata(md.mesh.x(pos2),md.mesh.y(pos2),md.friction.coefficient(pos2),md.mesh.x(pos1),md.mesh.y(pos1),'natural');
-md.friction.coefficient(pos1) = 1;
-pos=find(isnan(md.friction.coefficient));
-md.friction.coefficient(pos)  = 1;
+% disp('      -- Extrapolate on ice free and floating ice regions');
+% flags=(md.mask.ice_levelset>0) | (md.mask.ocean_levelset<0); pos1=find(flags); pos2=find(~flags);
+% %md.friction.coefficient(pos1) = griddata(md.mesh.x(pos2),md.mesh.y(pos2),md.friction.coefficient(pos2),md.mesh.x(pos1),md.mesh.y(pos1),'natural');
+% md.friction.coefficient(pos1) = 1;
+% pos=find(isnan(md.friction.coefficient));
+% md.friction.coefficient(pos)  = 1;
 %%}}}
 disp ' '
 
