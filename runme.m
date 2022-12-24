@@ -192,7 +192,7 @@ if perform(org,'Param'),% {{{ STEP 2
 
 	savemodel(org,md);
 end%}}}
-if perform(org,'Inversion'),% {{{ STEP 3
+if perform(org,'Lcurve'),% {{{ STEP 3
 
 	md = loadmodel(org,'Param');
 
@@ -210,7 +210,8 @@ if perform(org,'Inversion'),% {{{ STEP 3
 	md.inversion.cost_functions_coefficients=ones(md.mesh.numberofvertices,length(md.inversion.cost_functions));
    md.inversion.cost_functions_coefficients(:,1)=1;
    md.inversion.cost_functions_coefficients(:,2)=1;
-   md.inversion.cost_functions_coefficients(:,3)=1;
+   %Computed in a loop below
+   %md.inversion.cost_functions_coefficients(:,3)=.2*50^-3;
 
 	% %Remove obs where the front from the velocities are upstream of our current front
 	% filename = ['Exp/' glacier '_velfront.exp'];
@@ -279,15 +280,36 @@ if perform(org,'Inversion'),% {{{ STEP 3
 	%md.stressbalance.abstol=NaN;
    %md.stressbalance.requested_outputs={'default','DeviatoricStressxx','DeviatoricStressyy','DeviatoricStressxy'}
 
-	% Go solve
-	md.cluster=cluster;
-   md.settings.waitonlock = waitonlock;
-   md=solve(md,'Stressbalance'); %,'batch',batch);
+	%Go solve
+   s = input('Run interactively (y/n)?','s');
+   if strcmpi(s(1),'y')
+      coeffs = [.2*50^-9 .2*50^-6 .2*50^-3 .2*50^-2 .2*50^-1 .2*50^0 .2*50^1 .2*50^2 .2*50^3];
+      for i = 1:length(coeffs)
+         md.inversion.cost_functions_coefficients(:,3)=coeffs(i);
+         md.cluster=cluster;
+         md.settings.waitonlock = waitonlock;
+         %md=solve(md,'Stressbalance');
+         %md=solve(md,'Stressbalance','batch',batch);
+         %if waitonlock == 0 || isnan(waitonlock)
+         %   s = input('Has the remote run finished (y/n)?','s');
+         %   if strcmpi(s(1),'y')
+         %      md=loadresultsfromcluster(md);
+         %      delete([md.miscellaneous.name '.bin']);
+         %      delete([md.miscellaneous.name '.toolkits']);
+         %      delete([md.miscellaneous.name '.queue']);
+         %   end
+         %end
+         md.settings.waitonlock = 100;
+         md.cluster.interactive = true;
+         md=solve(md,'Stressbalance');
+         md.results.Lcurve(i) = md.results.StressbalanceSolution;
+      end
 
-   if waitonlock == 0 || isnan(waitonlock)
-      loadandsaveresultsfromcluster;
-   else
       savemodel(org,md);
+   else
+      disp 'exiting'
+      return
    end
+
 end%}}}
 
