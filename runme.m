@@ -210,7 +210,8 @@ if perform(org,'Inversion'),% {{{ STEP 3
 	md.inversion.cost_functions_coefficients=ones(md.mesh.numberofvertices,length(md.inversion.cost_functions));
    md.inversion.cost_functions_coefficients(:,1)=2000;
    md.inversion.cost_functions_coefficients(:,2)=40;
-   md.inversion.cost_functions_coefficients(:,3)=1.6000e-06;
+	% NOTE: For KAK, this was the regularization coefficient from the L-curve analysis
+   md.inversion.cost_functions_coefficients(:,3)=2e-06;
 
 	% %Remove obs where the front from the velocities are upstream of our current front
 	% filename = ['Exp/' glacier '_velfront.exp'];
