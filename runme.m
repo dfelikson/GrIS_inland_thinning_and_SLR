@@ -1,4 +1,4 @@
-steps = [3];
+steps = [4];
 
 %% Setup %%
 glacier = 'KAK'; glacier_epoch = 1985;
@@ -292,3 +292,59 @@ if perform(org,'Inversion'),% {{{ STEP 3
    end
 end%}}}
 
+if perform(org,'SetupSpcLevelset'),% {{{ STEP 4
+
+	md = loadmodel(org,'Inversion');
+
+	% Directory containing CALFIN polygons
+	calfin_dir = '/Users/dfelikso/Research/Data/GlacierTermini/CALFIN';
+	switch glacier
+		case 'KAK'
+			calfin_polygons_shp = [calfin_dir '/termini_1972-2019_Kakivfait-Sermia_polygons_v1.0.shp'];
+		case 'KLG'
+			calfin_polygons_shp = [calfin_dir '/termini_1972-2019_Kangerlussuaq-Gletsjer_polygons_v1.0.shp'];
+	end
+
+	% Read polygons and convert date strings to year, month, day
+	S = shaperead(calfin_polygons_shp);
+	calfin_dates = zeros(numel(S),3);
+	for i = 1:numel(S)
+		calfin_dates(i,1) = str2num(S(i).Date(1:4));
+		calfin_dates(i,2) = str2num(S(i).Date(5:6));
+		calfin_dates(i,3) = str2num(S(i).Date(7:8));
+	end
+	calfin_datenums = datenum(calfin_dates);
+	calfin_datetimes = datetime(calfin_datenums, 'ConvertFrom', 'datenum');
+	calfin_doys = day(calfin_datetimes, 'dayofyear');
+	calfin_decyears = calfin_dates(:,1) + calfin_doys ./ day(datetime(calfin_dates(:,1),12,31), 'dayofyear');
+
+	% Start by filling entire domain with ice
+	ice_levelset0 = -1 * ones(md.mesh.numberofvertices,1);
+	pos = find(calfin_dates(:,1) >= glacier_epoch & calfin_dates(:,1) <= 2015);
+	md.levelset.spclevelset = zeros(md.mesh.numberofvertices+1,length(pos));
+	for i = 1:length(pos)
+		in = inpolygon(md.mesh.x, md.mesh.y, S(pos(i)).X, S(pos(i)).Y);
+		ice_levelset = ice_levelset0;
+		ice_levelset(in) = +1;
+		md.levelset.spclevelset(1:end-1,i) = ice_levelset;
+		md.levelset.spclevelset(end,i) = calfin_decyears(i);
+	end
+
+	if size(md.levelset.spclevelset,2)>1,
+      disp('Converting levelsets to signed distance fields');
+      for i=1:size(md.levelset.spclevelset,2)
+         levelset = md.levelset.spclevelset(1:end-1,i);
+         pos      = find(levelset<0);
+
+         if exist('TEMP.exp','file'), delete('TEMP.exp'); end
+			isoline(md,levelset,'output','TEMP.exp');
+         levelset = abs(ExpToLevelSet(md.mesh.x,md.mesh.y,'TEMP.exp'));
+         delete('TEMP.exp');
+         levelset(pos) = - levelset(pos);
+
+         md.levelset.spclevelset(1:end-1,i) = levelset;
+      end
+	end
+	
+	savemodel(org,md);
+end%}}}
