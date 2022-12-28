@@ -9,7 +9,7 @@ prefix = '';
 %  md.cluster.interactive = 0;
 %  md.settings.waitonlock = nan; or = 0;
 clusterName = ''; % localhost
-%clusterName = 'oibserve';
+clusterName = 'oibserve';
 %clusterName = 'discover';
 %clusterName = 'ls5';
 %clusterName = 'melt';
