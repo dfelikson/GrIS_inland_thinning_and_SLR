@@ -19,12 +19,12 @@ switch clusterName %%{{{
       waitonlock = Inf; %nan;
 
    case 'oibserve'
-      cluster = generic('name', 'gs615-oibserve.ndc.nasa.gov', 'np', 12, 'interactive', 0, ...
+      cluster = generic('name', 'gs615-oibserve.ndc.nasa.gov', 'np', 24, 'interactive', 0, ...
          'login', 'dfelikso', ...
          'codepath', '/home/dfelikso/Software/ISSM/trunk-jpl/bin', ...
          'etcpath', '/home/dfelikso/Software/ISSM/trunk-jpl/etc', ...
          'executionpath', '/home/dfelikso/Projects/GrIS_Calibrated_SLR/ISSM/execution');
-      cluster.interactive = 1;
+      cluster.interactive = 0;
       waitonlock = Inf; %nan;
 
    case 'discover'
@@ -274,42 +274,23 @@ if perform(org,'Lcurve'),% {{{ STEP 3
    %    %md.inversion.cost_functions_coefficients(pos,3) = 0;
    % end
 
-	%Additional parameters
+	% Additional parameters
 	md.stressbalance.restol=0.01;
 	md.stressbalance.reltol=0.1;
 	md.stressbalance.abstol=NaN;
-   %md.stressbalance.requested_outputs={'default','DeviatoricStressxx','DeviatoricStressyy','DeviatoricStressxy'}
 
-	%Go solve
-   s = input('Run interactively (y/n)?','s');
-   if strcmpi(s(1),'y')
-      coeffs = [.2*50^-9 .2*50^-6 .2*50^-3 .2*50^-2 .2*50^-1 .2*50^0 .2*50^1 .2*50^2 .2*50^3];
-      for i = 1:length(coeffs)
-         md.inversion.cost_functions_coefficients(:,3)=coeffs(i);
-         md.cluster=cluster;
-         md.settings.waitonlock = waitonlock;
-         %md=solve(md,'Stressbalance');
-         %md=solve(md,'Stressbalance','batch',batch);
-         %if waitonlock == 0 || isnan(waitonlock)
-         %   s = input('Has the remote run finished (y/n)?','s');
-         %   if strcmpi(s(1),'y')
-         %      md=loadresultsfromcluster(md);
-         %      delete([md.miscellaneous.name '.bin']);
-         %      delete([md.miscellaneous.name '.toolkits']);
-         %      delete([md.miscellaneous.name '.queue']);
-         %   end
-         %end
-         md.settings.waitonlock = 100;
-         md.cluster.interactive = true;
-         md=solve(md,'Stressbalance');
-         md.results.Lcurve(i) = md.results.StressbalanceSolution;
-      end
-
-      savemodel(org,md);
-   else
-      disp 'exiting'
-      return
+	% Go solve
+	md.cluster=cluster;
+	md.settings.waitonlock = waitonlock;
+	% NOTE: For KAK, 2e-06 is the winner!
+	% NOTE: For KLG ...
+   coeffs = [1e-06, 2e-06:1e-05:8e-05, 8e-05, 4e-03];
+   for i = 1:length(coeffs)
+      md.inversion.cost_functions_coefficients(:,3)=coeffs(i);
+      md=solve(md,'Stressbalance');
+      md.results.Lcurve(i) = md.results.StressbalanceSolution;
    end
 
+   savemodel(org,md);
 end%}}}
 
