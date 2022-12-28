@@ -15,8 +15,8 @@ clusterName = ''; % localhost
 %clusterName = 'melt';
 switch clusterName %%{{{
    case {'','gs15serac'}
-      cluster = generic('name', oshostname(), 'np', 2);
-      waitonlock = 10; %nan;
+      cluster = generic('name', oshostname(), 'np', 4);
+      waitonlock = Inf; %nan;
 
    case 'oibserve'
       cluster = generic('name', 'gs615-oibserve.ndc.nasa.gov', 'np', 12, 'interactive', 0, ...
@@ -24,8 +24,8 @@ switch clusterName %%{{{
          'codepath', '/home/dfelikso/Software/ISSM/trunk-jpl/bin', ...
          'etcpath', '/home/dfelikso/Software/ISSM/trunk-jpl/etc', ...
          'executionpath', '/home/dfelikso/Projects/GrIS_Calibrated_SLR/ISSM/execution');
-      cluster.interactive = 0; %1;
-      waitonlock = nan;
+      cluster.interactive = 1;
+      waitonlock = Inf; %nan;
 
    case 'discover'
       cluster=discover;
@@ -199,7 +199,7 @@ if perform(org,'Inversion'),% {{{ STEP 3
 	% Control inversion -- general
 	md.inversion=m1qn3inversion(md.inversion);
 	md.inversion.iscontrol=1;
-	md.verbose=verbose('solution',false,'control',true);
+	md.verbose=verbose('solution',false,'control',true,'convergence',false);
 
 	% Control -- other
 	md.transient.issmb = 0;
@@ -208,9 +208,9 @@ if perform(org,'Inversion'),% {{{ STEP 3
 	% Cost functions
 	md.inversion.cost_functions=[101 103 501]; %Abs, Log, reg
 	md.inversion.cost_functions_coefficients=ones(md.mesh.numberofvertices,length(md.inversion.cost_functions));
-   md.inversion.cost_functions_coefficients(:,1)=1;
-   md.inversion.cost_functions_coefficients(:,2)=1;
-   md.inversion.cost_functions_coefficients(:,3)=1;
+   md.inversion.cost_functions_coefficients(:,1)=2000;
+   md.inversion.cost_functions_coefficients(:,2)=40;
+   md.inversion.cost_functions_coefficients(:,3)=1.6000e-06;
 
 	% %Remove obs where the front from the velocities are upstream of our current front
 	% filename = ['Exp/' glacier '_velfront.exp'];
@@ -227,8 +227,8 @@ if perform(org,'Inversion'),% {{{ STEP 3
 
 	% Controls
 	md.inversion.control_parameters={'FrictionCoefficient'};
-	md.inversion.maxsteps=50;
-	md.inversion.maxiter =50;
+	%md.inversion.maxsteps=50;
+	%md.inversion.maxiter =50;
 	md.inversion.min_parameters=0.05*ones(md.mesh.numberofvertices,1);
 	md.inversion.max_parameters=200*ones(md.mesh.numberofvertices,1);
 	md.inversion.control_scaling_factors=1;
@@ -274,9 +274,9 @@ if perform(org,'Inversion'),% {{{ STEP 3
    % end
 
 	%Additional parameters
-	%md.stressbalance.restol=0.01;
-	%md.stressbalance.reltol=0.1;
-	%md.stressbalance.abstol=NaN;
+	md.stressbalance.restol=0.01;
+	md.stressbalance.reltol=0.1;
+	md.stressbalance.abstol=NaN;
    %md.stressbalance.requested_outputs={'default','DeviatoricStressxx','DeviatoricStressyy','DeviatoricStressxy'}
 
 	% Go solve
