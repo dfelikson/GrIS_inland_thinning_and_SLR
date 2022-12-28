@@ -292,3 +292,37 @@ if perform(org,'Inversion'),% {{{ STEP 3
    end
 end%}}}
 
+if perform(org,'SetupSpcLevelset'),% {{{ STEP 4
+
+	md = loadmodel(org,'Param');
+
+	% Directory containing CALFIN polygons
+	calfin_dir = '/Users/dfelikso/Research/Data/GlacierTermini/CALFIN';
+	switch glacier
+		case 'KAK'
+			calfin_polygons_shp = [calfin_dir '/termini_1972-2019_Kakivfait-Sermia_polygons_v1.0.shp'];
+		case 'KLG'
+			calfin_polygons_shp = [calfin_dir '/termini_1972-2019_Kangerlussuaq-Gletsjer_polygons_v1.0.shp'];
+	end
+
+	% Read polygons and convert date strings to year, month, day
+	S = shaperead(calfin_polygons_shp);
+	calfin_dates = zeros(numel(S),3);
+	for i = 1:numel(S)
+		calfin_dates(i,1) = str2num(S(i).Date(1:4));
+		calfin_dates(i,2) = str2num(S(i).Date(5:6));
+		calfin_dates(i,3) = str2num(S(i).Date(7:8));
+	end
+
+	% Start by filling entire domain with ice
+	ice_levelset0 = -1 * ones(md.mesh.numberofvertices,1);
+	pos = find(calfin_dates(:,1) >= glacier_epoch && calfin_dates(:,1) <= 2015);
+	for i = pos
+		in = inpolygon(md.mesh.x, md.mesh.y, S(i).X, S(i).Y);
+		ice_levelset = ice_levelset0;
+		ice_levelset(in) = +1;
+		break
+	end
+
+	savemodel(org,md);
+end%}}}
