@@ -19,7 +19,7 @@ switch clusterName %%{{{
       waitonlock = Inf; %nan;
 
    case 'oibserve'
-      cluster = generic('name', 'gs615-oibserve.ndc.nasa.gov', 'np', 12, 'interactive', 0, ...
+      cluster = generic('name', 'gs615-oibserve.ndc.nasa.gov', 'np', 24, 'interactive', 0, ...
          'login', 'dfelikso', ...
          'codepath', '/home/dfelikso/Software/ISSM/trunk-jpl/bin', ...
          'etcpath', '/home/dfelikso/Software/ISSM/trunk-jpl/etc', ...
@@ -192,7 +192,7 @@ if perform(org,'Param'),% {{{ STEP 2
 
 	savemodel(org,md);
 end%}}}
-if perform(org,'Inversion'),% {{{ STEP 3
+if perform(org,'Lcurve'),% {{{ STEP 3
 
 	md = loadmodel(org,'Param');
 
@@ -210,8 +210,8 @@ if perform(org,'Inversion'),% {{{ STEP 3
 	md.inversion.cost_functions_coefficients=ones(md.mesh.numberofvertices,length(md.inversion.cost_functions));
    md.inversion.cost_functions_coefficients(:,1)=2000;
    md.inversion.cost_functions_coefficients(:,2)=40;
-	% NOTE: For KAK, this was the regularization coefficient from the L-curve analysis
-   md.inversion.cost_functions_coefficients(:,3)=2e-06;
+   %Computed in a loop below
+   %md.inversion.cost_functions_coefficients(:,3)=.2*50^-3;
 
 	% %Remove obs where the front from the velocities are upstream of our current front
 	% filename = ['Exp/' glacier '_velfront.exp'];
@@ -282,14 +282,17 @@ if perform(org,'Inversion'),% {{{ STEP 3
 
 	% Go solve
 	md.cluster=cluster;
-   md.settings.waitonlock = waitonlock;
-   md=solve(md,'Stressbalance'); %,'batch',batch);
-
-   if waitonlock == 0 || isnan(waitonlock)
-      loadandsaveresultsfromcluster;
-   else
-      savemodel(org,md);
+	md.settings.waitonlock = waitonlock;
+	% NOTE: For KAK, 2e-06 is the winner!
+	% NOTE: For KLG ...
+   coeffs = [1e-06, 2e-06:1e-05:8e-05, 8e-05, 4e-03];
+   for i = 1:length(coeffs)
+      md.inversion.cost_functions_coefficients(:,3)=coeffs(i);
+      md=solve(md,'Stressbalance');
+      md.results.Lcurve(i) = md.results.StressbalanceSolution;
    end
+
+   savemodel(org,md);
 end%}}}
 
 if perform(org,'Transient'),% {{{ STEP 4
