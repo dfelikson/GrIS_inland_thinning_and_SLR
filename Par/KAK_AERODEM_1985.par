@@ -1,0 +1,94 @@
+
+glacier = evalin('base', 'glacier');
+glacier_epoch = evalin('base', 'glacier_epoch');
+
+% Adjust ice surface using AERO DEM %%{{{
+% Set parameters
+md.friction.coefficient = md.results.StressbalanceSolution.FrictionCoefficient;
+md.inversion.iscontrol = 0;
+md.timestepping.time_step  = .01;
+md.timestepping.start_time = glacier_epoch;
+md.transient.ismovingfront = 1;
+md.transient.isgroundingline = 1;
+md.calving.calvingrate = zeros(md.mesh.numberofvertices,1);
+md.frontalforcings.meltingrate = zeros(md.mesh.numberofvertices,1);
+
+% NOTE: Adjust surface to aeroDEM
+aero_dem = interpAEROdem(md.mesh.x, md.mesh.y);
+% Calculate difference over ice
+surf_diff = aero_dem - md.geometry.surface;
+pos = find(md.mask.ice_levelset<0);
+surf_shift = mean(surf_diff(pos), 'omitnan');
+% Combine the two surfaces
+pos = find(~isnan(aero_dem));
+md.geometry.surface(pos) = aero_dem(pos);
+pos = find(isnan(aero_dem));
+md.geometry.surface(pos) = md.geometry.surface(pos) - surf_shift;
+%%}}}
+
+% Use CALFIN polygons to setup spclevelset %%{{{
+% Directory containing CALFIN polygons
+calfin_dir = '/Users/dfelikso/Research/Data/GlacierTermini/CALFIN';
+switch glacier
+	case 'KAK'
+		calfin_polygons_shp = [calfin_dir '/termini_1972-2019_Kakivfait-Sermia_polygons_v1.0.shp'];
+	case 'KLG'
+		calfin_polygons_shp = [calfin_dir '/termini_1972-2019_Kangerlussuaq-Gletsjer_polygons_v1.0.shp'];
+end
+
+% Read polygons and convert date strings to year, month, day
+S = shaperead(calfin_polygons_shp);
+calfin_dates = zeros(numel(S),3);
+for i = 1:numel(S)
+	calfin_dates(i,1) = str2num(S(i).Date(1:4));
+	calfin_dates(i,2) = str2num(S(i).Date(5:6));
+	calfin_dates(i,3) = str2num(S(i).Date(7:8));
+end
+calfin_datetimes = datetime(calfin_dates);
+calfin_doys = day(calfin_datetimes, 'dayofyear');
+calfin_decyears = calfin_dates(:,1) + calfin_doys ./ day(datetime(calfin_dates(:,1),12,31), 'dayofyear');
+
+% Start by filling entire domain with ice
+ice_levelset0 = -1 * ones(md.mesh.numberofvertices,1);
+
+% NOTE: For KAK, there's a patch of bedrock included in the ice mask at the front - get rid of this in ice_levelset0
+pos = find(md.geometry.surface < md.geometry.bed);
+ice_levelset0(pos) = +1;
+md.geometry.thickness = md.geometry.surface - md.geometry.bed;
+md.geometry.base = md.geometry.surface - md.geometry.thickness;
+
+% Then loop through CALFIN polygons and remove ice
+pos = find(calfin_datetimes >= glacier_epoch & calfin_datetimes <= datetime(2015,12,31));
+md.levelset.spclevelset = zeros(md.mesh.numberofvertices+1,length(pos));
+for i = 1:length(pos)
+	in = inpolygon(md.mesh.x, md.mesh.y, S(pos(i)).X, S(pos(i)).Y);
+	ice_levelset = ice_levelset0;
+	ice_levelset(in) = +1;
+	md.levelset.spclevelset(1:end-1,i) = ice_levelset;
+	md.levelset.spclevelset(end,i) = calfin_decyears(i);
+end
+
+% Find spclevelset closest to glacer_epoch
+pos = find(calfin_datetimes-glacier_epoch < 0, 1, 'last');
+md.mask.ice_levelset = md.levelset.spclevelset(1:end-1,pos);
+
+% NOTE: Assume everything is grounded and set ocean mask
+md.mask.ocean_levelset = -md.mask.ice_levelset;
+
+% Convert all levelsets to signed distance fields
+disp('Converting levelsets to signed distance fields');
+md.mask.ice_levelset    = levelset2signeddistance(md, md.mask.ice_levelset);
+md.mask.ocean_levelset  = levelset2signeddistance(md, md.mask.ocean_levelset);
+md.levelset.spclevelset = levelset2signeddistance(md, md.levelset.spclevelset);
+%%}}}
+
+% Set thickness to 1 meter outside of ice mask
+pos = find(md.mask.ice_levelset > 0);
+md.geometry.thickness(pos) = 1;
+md.geometry.surface(pos) = md.geometry.bed(pos) + md.geometry.thickness(pos);
+md.geometry.base(pos) = md.geometry.bed(pos);
+
+% Extrapolate basal friction %%{{{
+
+%%}}}
+

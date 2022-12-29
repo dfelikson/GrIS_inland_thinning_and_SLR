@@ -1,7 +1,7 @@
 steps = [4];
 
 %% Setup %%
-glacier = 'KAK'; glacier_epoch = 1985;
+glacier = 'KAK'; glacier_epoch = datetime(1985,07,23);
 %glacier = 'KLG'; glacier_epoch = 1999; %glacier_epoch = 1981;
 prefix = '';
 
@@ -9,7 +9,7 @@ prefix = '';
 %  md.cluster.interactive = 0;
 %  md.settings.waitonlock = nan; or = 0;
 clusterName = ''; % localhost
-%clusterName = 'oibserve';
+clusterName = 'oibserve';
 %clusterName = 'discover';
 %clusterName = 'ls5';
 %clusterName = 'melt';
@@ -24,7 +24,7 @@ switch clusterName %%{{{
          'codepath', '/home/dfelikso/Software/ISSM/trunk-jpl/bin', ...
          'etcpath', '/home/dfelikso/Software/ISSM/trunk-jpl/etc', ...
          'executionpath', '/home/dfelikso/Projects/GrIS_Calibrated_SLR/ISSM/execution');
-      cluster.interactive = 1;
+      cluster.interactive = 0; %1;
       waitonlock = Inf; %nan;
 
    case 'discover'
@@ -292,59 +292,44 @@ if perform(org,'Inversion'),% {{{ STEP 3
    end
 end%}}}
 
-if perform(org,'SetupSpcLevelset'),% {{{ STEP 4
+if perform(org,'Transient'),% {{{ STEP 4
+
+	% NOTE: Question to look into: how sensitive is the stress balance to initial velocity?
 
 	md = loadmodel(org,'Inversion');
+	md = parameterize(md,'Par/KAK_AERODEM_1985.par');
 
-	% Directory containing CALFIN polygons
-	calfin_dir = '/Users/dfelikso/Research/Data/GlacierTermini/CALFIN';
-	switch glacier
-		case 'KAK'
-			calfin_polygons_shp = [calfin_dir '/termini_1972-2019_Kakivfait-Sermia_polygons_v1.0.shp'];
-		case 'KLG'
-			calfin_polygons_shp = [calfin_dir '/termini_1972-2019_Kangerlussuaq-Gletsjer_polygons_v1.0.shp'];
-	end
+	% Remove duplicate spclevelset times
+	pos = find(diff(md.levelset.spclevelset(end,:))==0);
+	md.levelset.spclevelset(:,pos) = [];
 
-	% Read polygons and convert date strings to year, month, day
-	S = shaperead(calfin_polygons_shp);
-	calfin_dates = zeros(numel(S),3);
-	for i = 1:numel(S)
-		calfin_dates(i,1) = str2num(S(i).Date(1:4));
-		calfin_dates(i,2) = str2num(S(i).Date(5:6));
-		calfin_dates(i,3) = str2num(S(i).Date(7:8));
-	end
-	calfin_datenums = datenum(calfin_dates);
-	calfin_datetimes = datetime(calfin_datenums, 'ConvertFrom', 'datenum');
-	calfin_doys = day(calfin_datetimes, 'dayofyear');
-	calfin_decyears = calfin_dates(:,1) + calfin_doys ./ day(datetime(calfin_dates(:,1),12,31), 'dayofyear');
+	md.timestepping.start_time = year(glacier_epoch) + day(glacier_epoch, 'dayofyear') / day(datetime(year(glacier_epoch), 12, 31), 'dayofyear');
+   % To 2015
+   md.timestepping.final_time = 1990; 2015;
+	md.settings.output_frequency = (1/md.timestepping.time_step)/2; % forward run to 2015
+   % To 2100
+   %md.timestepping.final_time = 2100;
+	%md.settings.output_frequency = (1/md.timestepping.time_step)/2; % forward run to 2100
 
-	% Start by filling entire domain with ice
-	ice_levelset0 = -1 * ones(md.mesh.numberofvertices,1);
-	pos = find(calfin_dates(:,1) >= glacier_epoch & calfin_dates(:,1) <= 2015);
-	md.levelset.spclevelset = zeros(md.mesh.numberofvertices+1,length(pos));
-	for i = 1:length(pos)
-		in = inpolygon(md.mesh.x, md.mesh.y, S(pos(i)).X, S(pos(i)).Y);
-		ice_levelset = ice_levelset0;
-		ice_levelset(in) = +1;
-		md.levelset.spclevelset(1:end-1,i) = ice_levelset;
-		md.levelset.spclevelset(end,i) = calfin_decyears(i);
-	end
+	% Set the requested outputs
+	md.transient.requested_outputs={'default','IceVolume'};
+	md.stressbalance.requested_outputs={'default'};
 
-	if size(md.levelset.spclevelset,2)>1,
-      disp('Converting levelsets to signed distance fields');
-      for i=1:size(md.levelset.spclevelset,2)
-         levelset = md.levelset.spclevelset(1:end-1,i);
-         pos      = find(levelset<0);
+   % Go solve
+   %if contains(cluster.name, 'ls5')
+   %   cluster.time = 5*3600;
+   %   fprintf('Check cluster params:\n')
+   %   cluster
+   %   s = input('-> Continue (y/n)?','s');
+   %   if ~strcmpi(s(1),'y')
+   %      return
+   %   end
+   %end
+	md.verbose.solution=1;
+	md.cluster = cluster;
+   md.settings.waitonlock = waitonlock;
+   md=solve(md,'transient');
 
-         if exist('TEMP.exp','file'), delete('TEMP.exp'); end
-			isoline(md,levelset,'output','TEMP.exp');
-         levelset = abs(ExpToLevelSet(md.mesh.x,md.mesh.y,'TEMP.exp'));
-         delete('TEMP.exp');
-         levelset(pos) = - levelset(pos);
-
-         md.levelset.spclevelset(1:end-1,i) = levelset;
-      end
-	end
-	
 	savemodel(org,md);
 end%}}}
+

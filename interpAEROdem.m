@@ -1,17 +1,19 @@
 function sout = interpAEROdem(X,Y),
 
-switch oshostname(),
-	case {oshostname, 'localhost', 'gs615searise.ndc.nasa.gov'}
+switch strtok(oshostname(),'.'),
+	case {'localhost', 'gs615searise'}
 		if exist(['DEMs/' evalin('base','glacier') '.tif'],'file')
          DEMpath = ['DEMs/' evalin('base','glacier') '.tif'];
       else
-         DEMpath='~/Research/Projects/CentralWestGrISGlaciers/Data/AERO_DEMs/05-28-2015/aerodem_1985_1_utm22_polarStereo.tif';
+         DEMpath='/Users/dfelikso/Research/Data/AERO_DEM/originalData/05-10-2016/DEM/aerodem_1985_utm21_epsg3413.tif';
          fprintf(['\n\033[' '103;30' 'm   WARNING: ' 'DEMs/' evalin('base','glacier') '.tif not found; defaulting to: ' DEMpath '\033[0m \n\n']);
       end
-	case {'melt.ig.utexas.edu'}
+	case {'melt'}
 		DEMpath='/disk/staff/gcatania/polar/Arctic/data/AERO_DEM/05-10-2016/aerodem_1985_utm22_1_polarstereo.tif';
 	otherwise
-		error('machine not supported yet');
+		%error('machine not supported yet');
+		DEMpath='/Users/dfelikso/Research/Data/AERO_DEM/originalData/05-10-2016/DEM/aerodem_1985_utm21_epsg3413.tif';
+		fprintf(['\n\033[' '103;30' 'm   WARNING: Hostname not recognized; trying: ' DEMpath '\033[0m \n\n']);
 end
 
 usemap = 1;
@@ -51,10 +53,11 @@ end
 
 % Delete all possible nodata values
 data(data == -9999) = nan;
-data(data == -3.4028234663852886e+38) = nan;
+data(data < -3e+38) = nan;
+data(data == 0) = nan;
 
 surf = InterpFromGrid(xdata,ydata,data,X,Y);
-surf(surf == -9999) = nan;
+%surf(surf == -9999) = nan;
 
 % Must reference AERO dem to geoid
 geoid = interpGeoid(X,Y);

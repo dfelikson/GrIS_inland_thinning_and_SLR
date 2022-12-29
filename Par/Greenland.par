@@ -212,8 +212,6 @@ end
 
 %Set up the base as the difference between S and H
 md.geometry.base=md.geometry.surface-md.geometry.thickness;
-
-md.geometry.base = md.geometry.surface - md.geometry.thickness;
 %%}}}
 disp ' '
 
