@@ -212,6 +212,10 @@ end
 
 %Set up the base as the difference between S and H
 md.geometry.base=md.geometry.surface-md.geometry.thickness;
+
+disp('Converting levelsets to signed distance fields');
+md.mask.ice_levelset    = levelset2signeddistance(md, md.mask.ice_levelset);
+md.mask.ocean_levelset  = levelset2signeddistance(md, md.mask.ocean_levelset);
 %%}}}
 disp ' '
 
