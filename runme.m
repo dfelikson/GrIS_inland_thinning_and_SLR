@@ -403,7 +403,7 @@ if perform(org,'Transient'),% {{{ STEP 5
 
 	md.timestepping.start_time = year(glacier_epoch) + day(glacier_epoch, 'dayofyear') / day(datetime(year(glacier_epoch), 12, 31), 'dayofyear');
    % To 2015
-   md.timestepping.final_time = 1990; 2015;
+   md.timestepping.final_time = 2015;
 	md.settings.output_frequency = (1/md.timestepping.time_step)/8; % forward run to 2015
    % To 2100
    %md.timestepping.final_time = 2100;
