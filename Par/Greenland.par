@@ -114,7 +114,7 @@ end
 % If TACC offers a way around this for Lonestar5, can set this to some reasonable value.
 %
 if strcmpi(md.cluster.name, 'ls5')
-	md.settings.waitonlock = nan;
+   md.settings.waitonlock = nan;
 end
 
 %%{{{ Geometry and ice mask
@@ -123,8 +123,8 @@ disp('      -- Reading MC bed ');
 md.geometry.bed  = interpBedmachineGreenland(md.mesh.x,md.mesh.y,'bed');
 pos=find(isnan(md.geometry.bed));
 if ~isempty(pos)
-	disp('      -- fill in the blanks with Bamber 2013');
-	md.geometry.bed(pos) = interpBamber2013(md.mesh.x(pos),md.mesh.y(pos),'BedrockElevation');
+   disp('      -- fill in the blanks with Bamber 2013');
+   md.geometry.bed(pos) = interpBamber2013(md.mesh.x(pos),md.mesh.y(pos),'BedrockElevation');
 end
 switch surface_select
    case 'GIMP'
@@ -185,7 +185,7 @@ md.mask.ocean_levelset = -md.mask.ice_levelset;
 % Fill nunataks with 10 m of ice to provide some "lateral drag" in the model
 %%{{{
 if fill_nunataks
-	fprintf(['\n\033[' '103;30' 'm   WARNING: Filling nunataks with 10 m of ice. \033[0m \n']);
+   fprintf(['\n\033[' '103;30' 'm   WARNING: Filling nunataks with 10 m of ice. \033[0m \n']);
    % Vertices that are on land in the mask
    nunataks = mask == 1;
 
@@ -202,7 +202,7 @@ end
 %Correction if H<0
 pos=find(md.geometry.thickness<=0);
 if ~isempty(pos),
-	md.geometry.thickness(pos)=10;
+   md.geometry.thickness(pos)=10;
 end
 
 % disp('      Adjusting ice mask');
@@ -315,8 +315,8 @@ switch class(ice_temp)
    case 'double'
       %fprintf(' (assume ice is at %2d°C)\n', ice_temp);
       %md.materials.rheology_B = cuffey(ice_temp + 273.15)*ones(md.mesh.numberofvertices,1);
-		fprintf(' (use md.initialization.temperature)\n');
-		md.materials.rheology_B = cuffey(surface_temp_kelvin - 273.15);
+      fprintf(' (use md.initialization.temperature)\n');
+      md.materials.rheology_B = cuffey(surface_temp_kelvin - 273.15);
    case 'char'
       switch ice_temp
          case 'linear'
