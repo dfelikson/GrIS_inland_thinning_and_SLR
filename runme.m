@@ -1,4 +1,4 @@
-steps = [5];
+steps = [4];
 
 %% Setup %%
 glacier = 'KAK'; glacier_epoch = datetime(1985,07,23);
@@ -323,58 +323,29 @@ if perform(org,'Inversion'),% {{{ STEP 4
    %  md.friction.coefficient(pos)=min(md.friction.coefficient(pos),100);
    % end
    
-   % Where vel==0, set coefficients to 0 (i.e., don't try to match this in model)
-   disp(['Removing vel==0 obs from inversion']);
-   pos = find(md.inversion.vel_obs == 0);
-   md.inversion.cost_functions_coefficients(pos,:) = 0;
+   % Where there is ice but the inversion cost function coefficient was zero, use nearest neighbor interpolation for inversion.vel_obs
+   pos1 = find(md.mask.ice_levelset<0 & md.inversion.vel_obs==0);
+   pos2 = find(md.mask.ice_levelset<0 & md.inversion.vel_obs >0);
+   x_valid = md.mesh.x(pos2);
+   y_valid = md.mesh.y(pos2);
+   vx_obs_valid = md.inversion.vx_obs(pos2);
+   vy_obs_valid = md.inversion.vy_obs(pos2);
+   vel_obs_valid = md.inversion.vel_obs(pos2);
+   for i = 1:length(pos1)
+      pos = pos1(i);
+      [~, nearest_neighbor_pos] = min( sqrt( (md.mesh.x(pos)-x_valid).^2 + (md.mesh.y(pos)-y_valid).^2 ) );
+      md.inversion.vx_obs(pos) = vx_obs_valid(nearest_neighbor_pos);
+      md.inversion.vy_obs(pos) = vy_obs_valid(nearest_neighbor_pos);
+      md.inversion.vel_obs(pos) = vel_obs_valid(nearest_neighbor_pos);
+   end
 
    % Controls
    md.inversion.control_parameters={'FrictionCoefficient'};
-   %md.inversion.maxsteps=50;
-   %md.inversion.maxiter =50;
+   md.inversion.maxsteps=50;
+   md.inversion.maxiter =50;
    md.inversion.min_parameters=0.05*ones(md.mesh.numberofvertices,1);
    md.inversion.max_parameters=200*ones(md.mesh.numberofvertices,1);
    md.inversion.control_scaling_factors=1;
-
-   % Set basal friction coefficient initial guess to something low at front %%{{{
-   filename = ['Exp/' glacier '_coeffront.exp'];
-   %if ~exist(filename,'file'),
-   %   plotmodel(md,'data',md.friction.coefficient,'mask',md.mask.ice_levelset<0)
-   %   exptool(filename)
-   %end
-   if exist(filename,'file'),
-      disp(['Correcting basal friction coefficient initial guess for front inconsistencies']);
-      flags = ContourToNodes(md.mesh.x,md.mesh.y,filename,2);
-      %flags = md.inversion.vel_obs == 0;
-      pos1 = find(flags); pos2 = find(~flags);
-      %md.friction.coefficient(pos1,:) = 50;
-      %md.friction.coefficient(pos1,:) = 100;
-      md.friction.coefficient(pos1) = 1;
-      md.inversion.max_parameters(pos1)= 1;
-      %md.friction.coefficient(pos1,:) = 40;
-      %md.friction.coefficient(pos1,:) = griddata(md.mesh.x(pos2),md.mesh.y(pos2),md.friction.coefficient(pos2,:),md.mesh.x(pos1),md.mesh.y(pos1));
-
-      % % Special case: KLG
-      % % Although observed velocities at the front look reasonable, a "ridge" of high friction comes out of the inversion. This is meant to
-      % % neglect velocities along this erroneous ridge in the inversion.
-      % if glacier == 'KLG'
-      %    md.inversion.cost_functions_coefficients(pos1,1) = 0;
-      %    md.inversion.cost_functions_coefficients(pos1,2) = 0;
-      % end
-   end
-   %%}}}
-
-   % %Fix friction coefficient
-   % filename = ['Exp/' glacier '_fixFrictionCoefficient.exp'];
-   % if exist(filename,'file'),
-   %    disp(['Ignoring manually selected velocities in the inversion using ' filename]);
-   %    pos = find(ContourToNodes(md.mesh.x,md.mesh.y,filename,1));
-   %    %md.inversion.min_parameters(pos)=md.friction.coefficient(pos);
-   %    md.inversion.max_parameters(pos)=10; %md.friction.coefficient(pos);
-   %    %md.inversion.cost_functions_coefficients(pos,1) = 0;
-   %    %md.inversion.cost_functions_coefficients(pos,2) = 0;
-   %    %md.inversion.cost_functions_coefficients(pos,3) = 0;
-   % end
 
    %Additional parameters
    md.stressbalance.restol=0.01;
