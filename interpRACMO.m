@@ -25,73 +25,66 @@ else
 end
 
 %Read data{{{
-switch strtok(oshostname(),'.'),
-   case {'pcp521177pcs','gs615searise','localhost'}
-      switch string
-         case 'smb_downscaled'
+switch string
+   case 'smb_downscaled'
+      
+      if ~isempty(find(strcmp(options_values,'stable')))
+         % This is the mean SMB from 01Jan1971-31Dec1988 (so, a "stable ice sheet" mean climate):
+         racmodatasets = {['/Users/dfelikso/Research/Data/RACMO/RACMO2.3/RACMO2.3p1anomaly/' glacier '_smb_1971-1988_mean.tif']};
+         
+      elseif ~isempty(find(strcmp(options_values,'present-day')))
+         % This is the mean SMB from 01Aug2000-31Jul2015 (so, the present-day climate):
+         racmodatasets={'/Users/dfelikso/Research/Data/RACMO/RACMO2.3/RACMO2.ep1anomaly/GrIS_smb_downscaled_mean_01Aug2000-31Jul2015_fromMean_01Aug2000-31Jul2015_dh.tif'};
+
+      else
+         idx = find(strcmp(options_values,'startyear'));
+         if ~isempty(idx)
+            % Parse start/end years
+            idx = find(strcmp(options_values,'startyear'));
+            startyear = options_values{idx+1};
+            idx = find(strcmp(options_values,'endyear'));
+            endyear = options_values{idx+1};
             
-            if ~isempty(find(strcmp(options_values,'stable')))
-               % This is the mean SMB from 01Jan1971-31Dec1988 (so, a "stable ice sheet" mean climate):
-               racmodatasets = {['/Users/dfelikso/Research/Data/RACMO/RACMO2.3/RACMO2.3p1anomaly/' glacier '_smb_1971-1988_mean.tif']};
-               
-            elseif ~isempty(find(strcmp(options_values,'present-day')))
-               % This is the mean SMB from 01Aug2000-31Jul2015 (so, the present-day climate):
-               racmodatasets={'/Users/dfelikso/Research/Data/RACMO/RACMO2.3/RACMO2.ep1anomaly/GrIS_smb_downscaled_mean_01Aug2000-31Jul2015_fromMean_01Aug2000-31Jul2015_dh.tif'};
+            years = startyear:endyear;
+         else
+            % Find requested years
+            idx = find(strcmp(options_values,'years'));
+            years = options_values{idx+1};
+         end
 
-            else
-               idx = find(strcmp(options_values,'startyear'));
-               if ~isempty(idx)
-                  % Parse start/end years
-                  idx = find(strcmp(options_values,'startyear'));
-                  startyear = options_values{idx+1};
-                  idx = find(strcmp(options_values,'endyear'));
-                  endyear = options_values{idx+1};
-                  
-                  years = startyear:endyear;
-               else
-                  % Find requested years
-                  idx = find(strcmp(options_values,'years'));
-                  years = options_values{idx+1};
-               end
+         disp(['     -- RACMO: loading time-varying SMB from ' sprintf('%4d',years(1)) ' to ' sprintf('%4d',years(end))]);
+         % Look for files on local machine
+         if exist(['/Users/dfelikso/Research/Data/RACMO/RACMO2.3/RACMO2.3p1anomaly/' glacier '_smb_' sprintf('%4d',years(1)) '.tif'],'file') & ...
+            exist(['/Users/dfelikso/Research/Data/RACMO/RACMO2.3/RACMO2.3p1anomaly/' glacier '_smb_' sprintf('%4d',years(end)) '.tif'],'file')
 
-               disp(['     -- RACMO: loading time-varying SMB from ' sprintf('%4d',years(1)) ' to ' sprintf('%4d',years(end))]);
-               % Look for files on local machine
-               if exist(['/Users/dfelikso/Research/Data/RACMO/RACMO2.3/RACMO2.3p1anomaly/' glacier '_smb_' sprintf('%4d',years(1)) '.tif'],'file') & ...
-                  exist(['/Users/dfelikso/Research/Data/RACMO/RACMO2.3/RACMO2.3p1anomaly/' glacier '_smb_' sprintf('%4d',years(end)) '.tif'],'file')
-
-                  racmodatasets = {};
-                  for year = years
-                     racmodatasets{end+1} = ['/Users/dfelikso/Research/Data/RACMO/RACMO2.3/RACMO2.3p1anomaly/' glacier '_smb_' sprintf('%4d',year) '.tif'];
-                  end
-
-               else
-                  % Bounding box
-                  xmin = strtrim(sprintf('%16.6f', min(X)));
-                  xmax = strtrim(sprintf('%16.6f', max(X)));
-                  ymin = strtrim(sprintf('%16.6f', min(Y)));
-                  ymax = strtrim(sprintf('%16.6f', max(Y)));
-                  boundingbox = sprintf('''%s %s %s %s''',xmin,xmax,ymin,ymax);
-
-                  fprintf(['\n\033[' '103;30' 'm   WARNING: RACMO SMB tiffs not set up for ' glacier '.' '\033[0m']);
-                  fprintf(['\n\033[' '103;30' 'm            Use /home/student/denis/ModeledInlandThinning/Analysis/climate/clipRACMO_avgYear.py on melt.' '\033[0m']);
-                  fprintf(['\n\033[' '103;30' 'm            Bounding box: ' boundingbox '\033[0m \n']);
-                  return
-
-                  % % Call a script on melt to process
-                  % cmdstr = ['ssh -t denis@melt.ig.utexas.edu /home/student/denis/ModeledInlandThinning/Analysis/climate/clip_RACMO_smb.sh ' ...
-                  % glacier ' ' startdate ' ' enddate ' ' boundingbox];
-                  % system(cmdstr);
-                  % return
-               end
+            racmodatasets = {};
+            for year = years
+               racmodatasets{end+1} = ['/Users/dfelikso/Research/Data/RACMO/RACMO2.3/RACMO2.3p1anomaly/' glacier '_smb_' sprintf('%4d',year) '.tif'];
             end
 
-         otherwise
-            error(['variable ' string ' not supported'])
+         else
+            % Bounding box
+            xmin = strtrim(sprintf('%16.6f', min(X)));
+            xmax = strtrim(sprintf('%16.6f', max(X)));
+            ymin = strtrim(sprintf('%16.6f', min(Y)));
+            ymax = strtrim(sprintf('%16.6f', max(Y)));
+            boundingbox = sprintf('''%s %s %s %s''',xmin,xmax,ymin,ymax);
+
+            fprintf(['\n\033[' '103;30' 'm   WARNING: RACMO SMB tiffs not set up for ' glacier '.' '\033[0m']);
+            fprintf(['\n\033[' '103;30' 'm            Use /home/student/denis/ModeledInlandThinning/Analysis/climate/clipRACMO_avgYear.py on melt.' '\033[0m']);
+            fprintf(['\n\033[' '103;30' 'm            Bounding box: ' boundingbox '\033[0m \n']);
+            return
+
+            % % Call a script on melt to process
+            % cmdstr = ['ssh -t denis@melt.ig.utexas.edu /home/student/denis/ModeledInlandThinning/Analysis/climate/clip_RACMO_smb.sh ' ...
+            % glacier ' ' startdate ' ' enddate ' ' boundingbox];
+            % system(cmdstr);
+            % return
+         end
       end
 
    otherwise
-      error('hostname not supported yet');
-
+      error(['variable ' string ' not supported'])
 end
 %}}}
 
