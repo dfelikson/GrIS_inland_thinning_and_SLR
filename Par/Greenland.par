@@ -306,7 +306,7 @@ md.friction.q = 1.0 * ones(md.mesh.numberofelements,1);
 %%}}}
 disp ' '
 
-surface_temp_kelvin = min(273.15,interpMODGRNLD(md.mesh.x,md.mesh.y)) + 273.15;
+surface_temp_kelvin = -2 + 273.15;
 
 %%{{{ Flow law
 fprintf('   Creating flow law parameters');
@@ -316,7 +316,7 @@ switch class(ice_temp)
       %fprintf(' (assume ice is at %2d°C)\n', ice_temp);
       %md.materials.rheology_B = cuffey(ice_temp + 273.15)*ones(md.mesh.numberofvertices,1);
       fprintf(' (use md.initialization.temperature)\n');
-      md.materials.rheology_B = cuffey(surface_temp_kelvin - 273.15);
+      md.materials.rheology_B = cuffey(surface_temp_kelvin);
    case 'char'
       switch ice_temp
          case 'linear'
