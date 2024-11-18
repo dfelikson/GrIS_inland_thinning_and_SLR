@@ -1,4 +1,4 @@
-steps = [5];
+steps = [6];
 
 %% Setup %%
 glacier = 'KAK'; glacier_epoch = datetime(1985,07,23);
@@ -425,6 +425,37 @@ if perform(org,'Transient'),% {{{ STEP 5
    %end
    md.verbose.solution=1;
    md.cluster = cluster;
+   md.settings.waitonlock = waitonlock;
+   md=solve(md,'transient');
+
+   savemodel(org,md);
+end%}}}
+if perform(org,'Control'),% {{{ STEP 6
+
+   md = loadmodel(org,'Inversion');
+   md = parameterize(md,'Par/KAK_AERODEM_1985.par');
+   
+   md.timestepping.start_time = year(glacier_epoch) + day(glacier_epoch, 'dayofyear') / day(datetime(year(glacier_epoch), 12, 31), 'dayofyear');
+   % To 2015
+   md.timestepping.final_time = 2015;
+   md.settings.output_frequency = (1/md.timestepping.time_step)/8; % forward run to 2015
+   % To 2100
+   %md.timestepping.final_time = 2100;
+   %md.settings.output_frequency = (1/md.timestepping.time_step)/2; % forward run to 2100
+
+	% We set the transient parameters
+	md.transient.ismovingfront = 0;
+
+	% We set the calving model
+	md.levelset.spclevelset = nan; [md.mask.ice_levelset;0];
+
+	% Set the requested outputs
+	md.transient.requested_outputs={'default','IceVolume'};
+	md.stressbalance.requested_outputs={'default'};
+
+   % Go solve
+	md.verbose.solution=1;
+	md.cluster = cluster;
    md.settings.waitonlock = waitonlock;
    md=solve(md,'transient');
 
